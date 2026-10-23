@@ -6,15 +6,18 @@ from sqlalchemy import pool
 from alembic import context
 import os
 from pathlib import Path
-
 from dotenv import load_dotenv
 from sqlmodel import SQLModel, create_engine
+from app.src.domain.models.user_model import User
 
 load_dotenv(Path(__file__).resolve().parents[1] / ".env")
 
 database_url = os.getenv("DATABASE_URL")
+if not database_url:
+    raise RuntimeError(
+        "No se encontró DATABASE_URL en el archivo .env de users-service"
+    )
 
-from app.src.domain.models.user_model import User
 
 # this is the Alembic Config object, which provides
 # access to the values within the .ini file in use.
@@ -49,9 +52,9 @@ def run_migrations_offline() -> None:
     script output.
 
     """
-    url = config.get_main_option("sqlalchemy.url", os.getenv("database_url"))
+    
     context.configure(
-        url=url,
+        url=database_url,
         target_metadata=target_metadata,
         literal_binds=True,
         dialect_opts={"paramstyle": "named"},
@@ -74,7 +77,7 @@ def run_migrations_online() -> None:
     #     poolclass=pool.NullPool,
     # )
 
-    engine = create_engine(os.getenv("database_url"))
+    engine = create_engine(database_url)
 
     with engine.connect() as connection:
         context.configure(
