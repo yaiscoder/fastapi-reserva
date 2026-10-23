@@ -2,13 +2,12 @@ from typing import Annotated
 from uuid import UUID
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlmodel import Session
-
 from app.src.application.use_cases.create_booking import (
     BookingConflictError,
     CreateBooking,
 )
 from app.src.application.use_cases.get_bookings import GetBookings
-from app.src.domain.models.booking_model import Booking
+from app.src.domain.models.booking_model import Booking, BookingStatus
 from app.src.infrastructure.database.session import get_session
 from app.src.infrastructure.repositories.sqlmodel_booking_repository import (
     SQLModelBookingRepository,
@@ -17,6 +16,12 @@ from app.src.presentation.schemas.booking_schema import (
     BookingCreate,
     BookingRead,
 )
+from app.src.application.use_cases.cancel_booking import (
+    BookingAlreadyCancelledError,
+    BookingNotFoundError,
+    CancelBooking,
+)
+
 
 router = APIRouter(prefix="/bookings", tags=["Bookings"])
 
@@ -74,3 +79,26 @@ def get_booking_by_id(
         )
 
     return booking
+
+
+@router.delete("/{booking_id}", response_model=BookingRead)
+def cancel_booking(
+    booking_id: UUID,
+    session: Annotated[Session, Depends(get_session)],
+):
+    repository = SQLModelBookingRepository(session)
+    use_case = CancelBooking(repository)
+
+    try:
+        return use_case.execute(booking_id)
+    except BookingNotFoundError as error:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=str(error),
+        ) from error
+    except BookingAlreadyCancelledError as error:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail=str(error),
+        ) from error
+
